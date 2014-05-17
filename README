@@ -1,0 +1,3 @@
+Arduino sketch for mains frequency monitor
+
+Uses analog comparator to detect waveform edge.  Displays a rolling 5 minute average.
