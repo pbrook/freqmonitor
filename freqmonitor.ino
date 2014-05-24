@@ -10,10 +10,13 @@
 #define rck_pin 8
 #define g_pin 9
 #define clr_pin 10
+#define servo_pin A1
 
 static uint16_t last_capture;
 static volatile uint16_t period;
 static volatile uint8_t capture_head;
+
+static int16_t servo_pos = 0;
 
 static uint16_t blip;
 
@@ -45,6 +48,8 @@ ISR(TIMER1_CAPT_vect)
 
   now = ICR1;
   period = now - last_capture;
+  if (period < 10000)
+    return;
   last_capture = now;
   capture_head++;
 }
@@ -54,7 +59,6 @@ ISR(TIMER1_CAPT_vect)
 static void
 record_freq(uint32_t ticks)
 {
-  uint32_t total;
   uint32_t freq;
   int i;
   uint8_t r;
@@ -75,6 +79,7 @@ record_freq(uint32_t ticks)
   // We could do this in fixed point, but long division is hard.
   freq = (2000000.0f * 10000.0f * 256.0f * valid_totals) / ticks;
 
+  servo_pos = 500000l - freq;
   for (i = 0; i < 6; i++) {
       r = freq % 10;
       freq /= 10;
@@ -84,8 +89,6 @@ record_freq(uint32_t ticks)
 
 void setup()
 {
-  int i;
-
   capture_head = 0xf0;
   blip = 10000;
 
@@ -118,6 +121,8 @@ void setup()
   digitalWrite(clr_pin, 1);
   pinMode(rck_pin, OUTPUT);
   digitalWrite(rck_pin, 0);
+  pinMode(servo_pin, OUTPUT);
+  digitalWrite(servo_pin, 0);
 }
 
 static void
@@ -148,6 +153,48 @@ do_digit(uint8_t digit)
   }
 }
 
+ISR(TIMER2_COMPA_vect)
+{
+  digitalWrite(servo_pin, 0);
+  TCCR2B = 0;
+}
+
+static void
+start_servo(void)
+{
+  uint8_t ticks;
+
+  // Normal mode
+  TCCR2A = 0;
+  TCNT2 = 0;
+  TIMSK2 = _BV(OCIE2A);
+  // A /256 prescale gives 62.5kHz timer tick = 16us/tick.
+  // Center position = 1.5ms = 94 ticks
+  ticks = 94;
+  // We use a discontinuous scale, with 2.5 mHz/tick up to +-0.1Hz,
+  // and 25mHz/tick up to +-0.5Hz
+  if (servo_pos >= -1000 && servo_pos <= 1000) {
+      ticks += servo_pos / 25;
+  } else if (servo_pos > 0) {
+      if (servo_pos > 5000)
+	  servo_pos = 5000;
+      ticks += servo_pos / 250 + 36;
+  } else {
+      if (servo_pos < -5000)
+	servo_pos = -5000;
+      ticks += servo_pos / 250 - 36;
+  }
+
+  // TODO: Change this.
+  OCR2A = ticks;
+  cli();
+  GTCCR = _BV(PSRASY);
+  asm volatile("nop");
+  TCCR2B = _BV(CS22) | _BV(CS21);
+  digitalWrite(servo_pin, 1);
+  sei();
+}
+
 void loop()
 {
   uint8_t last_capture;
@@ -174,6 +221,7 @@ void loop()
 	      total = 0;
 	      blip = 100;
 	  }
+	  start_servo();
       }
       now = micros();
       if (now - last_display > 1000) {
