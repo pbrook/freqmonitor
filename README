@@ -1,3 +1,10 @@
 Arduino sketch for mains frequency monitor
 
-Uses analog comparator to detect waveform edge.  Displays a rolling 5 minute average.
+Uses analog comparator to detect waveform edge.
+
+Displays a rolling 5 minute average.
+LED display is common cathode 7-segment display.
+Anodes driven directly from the atmega, cathode via
+tpic6c595 high power shift register.
+
+Also drives a servo to provide an analogue readout.
