@@ -48,7 +48,9 @@ ISR(TIMER1_CAPT_vect)
 
   now = ICR1;
   period = now - last_capture;
-  if (period < 10000)
+  // Anything significantly below 40000 is probably a noisy transition.
+  // The analog filter should prevent these, but double check here anyway.
+  if (period < 35000) // 57Hz
     return;
   last_capture = now;
   capture_head++;
