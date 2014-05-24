@@ -173,6 +173,7 @@ start_servo(void)
   ticks = 94;
   // We use a discontinuous scale, with 2.5 mHz/tick up to +-0.1Hz,
   // and 25mHz/tick up to +-0.5Hz
+  // The crossover point corresponds to 57.6 degrees
   if (servo_pos >= -1000 && servo_pos <= 1000) {
       ticks += servo_pos / 25;
   } else if (servo_pos > 0) {
