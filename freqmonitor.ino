@@ -10,6 +10,9 @@
 #define rck_pin 8
 #define g_pin 9
 #define clr_pin 10
+#define enable_pin A0
+// Enable switch accidentally connected to annother data pin, not ground
+#define enable_out A3
 #define servo_pin A1
 
 static uint16_t last_capture;
@@ -65,6 +68,9 @@ record_freq(uint32_t ticks)
   int i;
   uint8_t r;
 
+  if (!digitalRead(enable_pin))
+    return;
+
   totals[long_total] = ticks;
   long_total++;
   if (long_total > valid_totals)
@@ -93,6 +99,7 @@ void setup()
 {
   capture_head = 0xf0;
   blip = 10000;
+  digit_val[5] = 5;
 
   // Disable ADC
   ADCSRA = 0;
@@ -102,8 +109,8 @@ void setup()
   ADMUX = 7;
 #else
   ADMUX = 5;
+  DIDR0 = _BV(ADC5D);
 #endif
-  DIDR0 = _BV(ADC0D);
   ACSR = _BV(ACBG) | _BV(ACIC) | _BV(ACIS1);
 
   // 50Hz = 320k CPU cycles. A /8 divider allows us to capture with a 16-bit timer
@@ -117,6 +124,9 @@ void setup()
   SPI.setDataMode(SPI_MODE0);
   SPI.begin();
 
+  pinMode(enable_out, OUTPUT);
+  digitalWrite(enable_out, 0);
+  pinMode(enable_pin, INPUT_PULLUP);
   pinMode(g_pin, OUTPUT);
   digitalWrite(g_pin, 0);
   pinMode(clr_pin, OUTPUT);
